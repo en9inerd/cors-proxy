@@ -1,0 +1,8 @@
+name = "cors-proxy"
+main = "src/index.ts"
+compatibility_date = "2023-04-15"
+usage_model = "bundled"
+env = { }
+
+[triggers]
+crons = [ ]
