@@ -13,8 +13,8 @@ const handler: ExportedHandler = {
       "Access-Control-Max-Age": "86400",
     };
     const url = new URL(request.url);
-    const apiUrl = url.searchParams.get("apiUrl") || "";
-    const origin = request.headers.get("Origin") || "";
+    const apiUrl = url.searchParams.get("apiUrl") ?? "";
+    const origin = request.headers.get("Origin") ?? "";
 
     if ((isListed(apiUrl, blacklist) || !isListed(origin, whitelist)) && apiUrl) {
       return new Response(null, {
@@ -96,15 +96,15 @@ const handler: ExportedHandler = {
         });
       }
     } else {
-      const requesterIp = request.headers.get("CF-Connecting-IP") || "";
-      const requesterIp6 = request.headers.get("CF-Connecting-IPv6") || "";
+      const requesterIp = request.headers.get("CF-Connecting-IP");
+      const requesterIp6 = request.headers.get("CF-Connecting-IPv6");
       const requesterInfo = JSON.stringify({
         usage: `${url.origin}/?apiUrl=<API_URL>`,
-        origin: request.headers.get("Origin") || "",
-        ip: requesterIp || requesterIp6 || "",
-        country: request.cf?.country || "",
-        datacenter: request.cf?.colo || "",
-        xCorsHeaders: request.headers.get("x-cors-headers") || "",
+        origin: request.headers.get("Origin") ?? "",
+        ip: requesterIp ?? requesterIp6 ?? "",
+        country: request.cf?.country ?? "",
+        datacenter: request.cf?.colo ?? "",
+        xCorsHeaders: request.headers.get("x-cors-headers") ?? "",
       });
 
       return infoResponse(requesterInfo);
