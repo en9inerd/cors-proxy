@@ -16,7 +16,6 @@ const handler: ExportedHandler = {
     const apiUrl = url.searchParams.get("apiUrl") || "";
     const origin = request.headers.get("Origin") || "";
 
-    // Check if the origin is in the whitelist or the API URL is in the blacklist. Consider
     if ((isListed(apiUrl, blacklist) || !isListed(origin, whitelist)) && apiUrl) {
       return new Response(null, {
         status: 403,
