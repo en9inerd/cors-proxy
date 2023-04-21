@@ -5,9 +5,11 @@ Use [wrangler](https://www.npmjs.com/package/wrangler) to deploy this worker to 
 ## Usage
 
 ```typescript
-fetch("https://cors-proxy.workers.dev/?https://wikipedia.org").then(response => {
-  console.log(response);
+fetch("https://cors-proxy.workers.dev/?apiUrl=https://api.ipify.org?format=json").then(response => {
+  return response.json();
+}).then(data => {
+  console.log(data);
 });
 ```
 
-where `https://wikipedia.org` is the URL you want to fetch and `https://cors-proxy.workers.dev` is the URL of your deployed worker.
+where `https://api.ipify.org?format=json` is the URL you want to fetch and `https://cors-proxy.workers.dev` is the URL of your deployed worker.

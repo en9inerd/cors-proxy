@@ -1,110 +1,116 @@
 const blacklist = [] as RegExp[]; // regexp for blacklisted urls
 const whitelist = [/.*/] as RegExp[]; // regexp for whitelisted origins
 
-function isListed(uri: string | null, listing: RegExp[]): boolean {
-  return typeof uri === "string" ? listing.some(m => !!uri.match(m)) : true;
+function isListed(uri: string, listing: RegExp[]): boolean {
+  return listing.some((m) => !!uri.match(m));
 }
 
-addEventListener("fetch", event => {
-  event.respondWith((async () => {
-    const isOPTIONS = event.request.method === "OPTIONS";
-    const originUrl = new URL(event.request.url);
+const handler: ExportedHandler = {
+  async fetch(request) {
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+      "Access-Control-Max-Age": "86400",
+    };
+    const url = new URL(request.url);
+    const apiUrl = url.searchParams.get("apiUrl") || "";
+    const origin = request.headers.get("Origin") || "";
 
-    function fixHeaders(headers: Headers): Headers {
-      headers.set("Access-Control-Allow-Origin", event.request.headers.get("Origin")!);
-      if (isOPTIONS) {
-        headers.set("Access-Control-Allow-Methods", event.request.headers.get("access-control-request-method")!);
-        const accessControlRequestHeaders = event.request.headers.get("access-control-request-headers");
-        if (accessControlRequestHeaders) {
-          headers.set("Access-Control-Allow-Headers", accessControlRequestHeaders);
-        }
-        headers.delete("X-Content-Type-Options");
-      }
-      return headers;
+    // Check if the origin is in the whitelist or the API URL is in the blacklist. Consider
+    if ((isListed(apiUrl, blacklist) || !isListed(origin, whitelist)) && apiUrl) {
+      return new Response(null, {
+        status: 403,
+        statusText: "Forbidden",
+      });
     }
 
-    const fetchUrl = decodeURIComponent(decodeURIComponent(originUrl.search.substr(1)));
-    const origin = event.request.headers.get("Origin");
-    const host = event.request.headers.get("Host");
-    const cookies = event.request.headers.get("Cookie");
-    const remoteIp = event.request.headers.get("Cf-Connecting-IP");
-    const remoteIp6 = event.request.headers.get("Cf-Connecting-IPv6");
-
-    if (!isListed(fetchUrl, blacklist) && isListed(origin, whitelist)) {
-      let xheaders: Record<string, string> | undefined = undefined;
-      const xCorsHeaders = event.request.headers.get("x-cors-headers");
-      if (xCorsHeaders) {
-        try {
-          xheaders = JSON.parse(xCorsHeaders);
-        } catch (e) { }
-      }
-
-      if (originUrl.search.startsWith("?")) {
-        const recvHeaders: Record<string, string> = {};
-        for (const [name, value] of event.request.headers) {
-          if (!name.match(/^origin/i) && !name.match(/referer/i) && !name.match(/^cf-/i)
-            && !name.match(/^x-forw/i) && !name.match(/^x-cors-headers/i)) {
-            recvHeaders[name] = value;
-          }
-        }
-        if (xheaders) {
-          Object.entries(xheaders).forEach(([name, value]) => {
-            recvHeaders[name] = value;
-          });
-        }
-        if (cookies) {
-          recvHeaders["Cookie"] = cookies;
-        }
-        if (host) {
-          recvHeaders["Host"] = host;
-        }
-        const newReq = new Request(event.request, {
-          redirect: "follow",
-          headers: recvHeaders,
-        });
-        const response = await fetch(fetchUrl, newReq);
-        const corsHeaders = Array.from(response.headers.keys());
-        corsHeaders.push("cors-received-headers");
-        const receivedHeaders: Record<string, string> = {};
-        for (const [name, value] of response.headers) {
-          receivedHeaders[name] = value;
-        }
-        const headers = fixHeaders(new Headers(response.headers));
-        headers.set("Access-Control-Expose-Headers", corsHeaders.join(","));
-        headers.set("cors-received-headers", JSON.stringify(receivedHeaders));
-        const body = isOPTIONS ? null : await response.arrayBuffer();
-        return new Response(body, {
-          headers,
-          status: isOPTIONS ? 200 : response.status,
-          statusText: isOPTIONS ? "OK" : response.statusText,
-        });
-      } else {
-        const country = event.request.cf?.country;
-        const colo = event.request.cf?.colo;
-        const myHeaders = fixHeaders(new Headers());
-        const responseBody = JSON.stringify({
-          usage: `${originUrl.origin}/?uri`,
-          origin: origin ? origin : "",
-          ip: remoteIp ? remoteIp : remoteIp6 ? remoteIp6 : "",
-          country: country ? country : "",
-          datacenter: colo ? colo : "",
-          xCorsHeaders: xheaders ? xheaders : "",
-        });
-        myHeaders.set("Content-Type", "application/json");
-
-        return new Response(responseBody, {
-          status: 200,
-          headers: myHeaders,
-        });
-      }
-    } else {
-      return new Response("Access denied", {
-        status: 401,
-        statusText: "Access denied",
+    function infoResponse(json: string) {
+      return new Response(json, {
+        status: 200,
         headers: {
-          "Content-Type": "text/html",
+          "content-type": "application/json;charset=UTF-8",
+          "Access-Control-Allow-Origin": origin!,
         },
       });
     }
-  })());
-});
+
+    async function handleRequest(request: Request) {
+      // Rewrite request to point to API URL. This also makes the request mutable
+      // so you can add the correct Origin header to make the API server think
+      // that this request is not cross-site.
+      request = new Request(apiUrl, request);
+      request.headers.set("Origin", new URL(apiUrl).origin);
+      let response = await fetch(request);
+      // Recreate the response so you can modify the headers
+
+      response = new Response(response.body, response);
+      // Set CORS headers
+
+      response.headers.set("Access-Control-Allow-Origin", origin!);
+
+      // Append to/Add Vary header so browser will cache response correctly
+      response.headers.append("Vary", "Origin");
+
+      return response;
+    }
+
+    async function handleOptions(request: Request) {
+      if (
+        request.headers.get("Origin") !== null &&
+        request.headers.get("Access-Control-Request-Method") !== null &&
+        request.headers.get("Access-Control-Request-Headers") !== null
+      ) {
+        // Handle CORS preflight requests.
+        return new Response(null, {
+          headers: {
+            ...corsHeaders,
+            "Access-Control-Allow-Headers": request.headers.get(
+              "Access-Control-Request-Headers"
+            )!,
+          },
+        });
+      } else {
+        // Handle standard OPTIONS request.
+        return new Response(null, {
+          headers: {
+            Allow: "GET, HEAD, POST, OPTIONS",
+          },
+        });
+      }
+    }
+
+    if (apiUrl) {
+      if (request.method === "OPTIONS") {
+        // Handle CORS preflight requests
+        return handleOptions(request);
+      } else if (
+        request.method === "GET" ||
+        request.method === "HEAD" ||
+        request.method === "POST"
+      ) {
+        // Handle requests to the API server
+        return handleRequest(request);
+      } else {
+        return new Response(null, {
+          status: 405,
+          statusText: "Method Not Allowed",
+        });
+      }
+    } else {
+      const requesterIp = request.headers.get("CF-Connecting-IP") || "";
+      const requesterIp6 = request.headers.get("CF-Connecting-IPv6") || "";
+      const requesterInfo = JSON.stringify({
+        usage: `${url.origin}/?apiUrl=<API_URL>`,
+        origin: request.headers.get("Origin") || "",
+        ip: requesterIp || requesterIp6 || "",
+        country: request.cf?.country || "",
+        datacenter: request.cf?.colo || "",
+        xCorsHeaders: request.headers.get("x-cors-headers") || "",
+      });
+
+      return infoResponse(requesterInfo);
+    }
+  },
+};
+
+export default handler;
