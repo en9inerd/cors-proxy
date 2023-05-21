@@ -5,8 +5,8 @@ function isListed(uri: string, listing: RegExp[]): boolean {
   return listing.some((m) => !!uri.match(m));
 }
 
-const handler: ExportedHandler = {
-  async fetch(request) {
+export default {
+  async fetch(request: Request) {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
@@ -28,7 +28,7 @@ const handler: ExportedHandler = {
         status: 200,
         headers: {
           "content-type": "application/json;charset=UTF-8",
-          "Access-Control-Allow-Origin": origin!,
+          "Access-Control-Allow-Origin": origin,
         },
       });
     }
@@ -45,7 +45,7 @@ const handler: ExportedHandler = {
       response = new Response(response.body, response);
       // Set CORS headers
 
-      response.headers.set("Access-Control-Allow-Origin", origin!);
+      response.headers.set("Access-Control-Allow-Origin", origin);
 
       // Append to/Add Vary header so browser will cache response correctly
       response.headers.append("Vary", "Origin");
@@ -65,7 +65,7 @@ const handler: ExportedHandler = {
             ...corsHeaders,
             "Access-Control-Allow-Headers": request.headers.get(
               "Access-Control-Request-Headers"
-            )!,
+            ) ?? "",
           },
         });
       } else {
@@ -111,5 +111,3 @@ const handler: ExportedHandler = {
     }
   },
 };
-
-export default handler;
