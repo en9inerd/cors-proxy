@@ -1,6 +1,6 @@
 # Simple CORS proxy based on Cloudflare Workers
 
-Use [wrangler](https://www.npmjs.com/package/wrangler) to deploy this worker to your Cloudflare account.
+Problem statement is described in [this blog post](https://enginerd.io/2023/04/17/cors-proxy/).
 
 ## Worker deployment
 
