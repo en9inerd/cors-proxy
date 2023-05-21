@@ -2,13 +2,13 @@
   "name": "cors-proxy",
   "version": "0.0.0",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230404.0",
+    "@cloudflare/workers-types": "^4.20230511.0",
     "typescript": "^5.0.4",
-    "wrangler": "2.15.1"
+    "wrangler": "3.0.0"
   },
   "private": true,
   "scripts": {
     "start": "wrangler dev",
-    "deploy": "wrangler publish"
+    "deploy": "wrangler deploy"
   }
 }
